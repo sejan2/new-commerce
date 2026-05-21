@@ -58,7 +58,7 @@ res.cookie("token", token, {
 };
 
 const logoutUser = (req, res) => {
-  res.clearCookie("token").json({ success: true, message: "Logged out successfully!" });
+  res.clearCookie("token", { httpOnly: true, secure: true, sameSite: "none" }).json({ success: true, message: "Logged out successfully!" });
 };
 
 const authMiddleware = async (req, res, next) => {
