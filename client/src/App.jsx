@@ -18,7 +18,6 @@ import UnauthPage from "./pages/unauth-page";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
 import { checkAuth } from "./store/auth-slice";
-import { Skeleton } from "@/components/ui/skeleton";
 import OrderSuccessPage from "./pages/shopping-view/order-success";
 import SearchProducts from "./pages/shopping-view/search";
 
@@ -32,7 +31,15 @@ function App() {
     dispatch(checkAuth());
   }, [dispatch]);
 
-  if (isLoading) return <Skeleton className="w-[800] bg-black h-[600px]" />;
+  if (isLoading)
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center bg-white z-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
+          <p className="text-sm font-medium text-gray-400 tracking-wide">Loading…</p>
+        </div>
+      </div>
+    );
 
   return (
     <div className="flex flex-col overflow-hidden bg-white">

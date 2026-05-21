@@ -179,20 +179,20 @@ function ShoppingHome() {
     <div className="flex flex-col min-h-screen bg-white">
 
       {/* ── HERO ── */}
-      <div className="relative w-full h-[480px] md:h-[580px] overflow-hidden bg-gray-900">
+      <div className="relative w-full h-[300px] sm:h-[420px] md:h-[580px] overflow-hidden bg-gray-900">
         {slides.map((slide, i) => (
           <img key={i} src={slide?.image} alt="" className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${i === currentSlide ? "opacity-100" : "opacity-0"}`} />
         ))}
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/25 to-transparent" />
-        <div className="absolute inset-0 flex flex-col justify-center px-8 md:px-20">
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-300 uppercase tracking-widest mb-3">
+        <div className="absolute inset-0 flex flex-col justify-center px-5 sm:px-10 md:px-20">
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-300 uppercase tracking-widest mb-2 sm:mb-3">
             <TrendingUp className="w-3.5 h-3.5" /> New Season
           </span>
-          <h1 className="text-4xl md:text-6xl font-black text-white leading-tight mb-4 drop-shadow-lg">
+          <h1 className="text-2xl sm:text-4xl md:text-6xl font-black text-white leading-tight mb-3 sm:mb-4 drop-shadow-lg">
             Discover Your<br /><span className="text-indigo-400">Perfect Style</span>
           </h1>
-          <p className="text-gray-300 text-sm md:text-base mb-7 max-w-sm">Shop the latest trends — fast delivery, best prices.</p>
-          <button onClick={() => navigate("/shop/listing")} className="inline-flex items-center gap-2 bg-white text-gray-900 font-bold px-7 py-3 rounded-full w-fit hover:bg-indigo-50 transition shadow-xl text-sm">
+          <p className="text-gray-300 text-xs sm:text-sm md:text-base mb-5 sm:mb-7 max-w-xs sm:max-w-sm">Shop the latest trends — fast delivery, best prices.</p>
+          <button onClick={() => navigate("/shop/listing")} className="inline-flex items-center gap-2 bg-white text-gray-900 font-bold px-5 sm:px-7 py-2.5 sm:py-3 rounded-full w-fit hover:bg-indigo-50 transition shadow-xl text-xs sm:text-sm">
             Shop Now <ArrowRight className="w-4 h-4" />
           </button>
         </div>

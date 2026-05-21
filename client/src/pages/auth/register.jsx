@@ -1,5 +1,5 @@
 import { useToast } from "@/components/ui/use-toast";
-import { registerUser } from "@/store/auth-slice";
+import { registerUser, loginUser } from "@/store/auth-slice";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
@@ -19,11 +19,25 @@ function AuthRegister() {
     event.preventDefault();
     setIsLoading(true);
     dispatch(registerUser(formData)).then((data) => {
-      setIsLoading(false);
       if (data?.payload?.success) {
         toast({ title: data?.payload?.message });
-        navigate("/auth/login");
+        // Auto-login after registration and redirect by role
+        dispatch(loginUser({ email: formData.email, password: formData.password })).then((loginData) => {
+          setIsLoading(false);
+          if (loginData?.payload?.success) {
+            const role = loginData?.payload?.user?.role;
+            if (role === "admin") {
+              navigate("/admin/dashboard");
+            } else {
+              navigate("/shop/home");
+            }
+          } else {
+            // fallback to login page if auto-login fails
+            navigate("/auth/login");
+          }
+        });
       } else {
+        setIsLoading(false);
         toast({ title: data?.payload?.message, variant: "destructive" });
       }
     });
