@@ -1,43 +1,52 @@
 const Product = require("../../models/Product");
 
-// ── MCP Tool Definitions ──────────────────────────────────────────────────────
+// ── Tool Definitions ──────────────────────────────────────────────────────────
 const tools = [
   {
-    name: "search_products",
-    description: "Search products by keyword in title, description or brand",
-    parameters: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "Search keyword" },
-        limit: { type: "number", description: "Max results (default 5)" },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "filter_products",
-    description: "Filter products by category, brand, min/max price",
-    parameters: {
-      type: "object",
-      properties: {
-        category: { type: "string", description: "e.g. men, women, kids, accessories, footwear" },
-        brand: { type: "string", description: "e.g. nike, adidas, zara, h&m, levi, puma" },
-        minPrice: { type: "number" },
-        maxPrice: { type: "number" },
-        limit: { type: "number" },
+    type: "function",
+    function: {
+      name: "search_products",
+      description: "Search products by keyword in title, description or brand",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Search keyword" },
+          limit: { type: "number", description: "Max results (default 5)" },
+        },
+        required: ["query"],
       },
     },
   },
   {
-    name: "get_featured_products",
-    description: "Get top rated or sale/discounted products",
-    parameters: {
-      type: "object",
-      properties: {
-        type: { type: "string", description: "Either 'sale' for discounted or 'top' for highest rated" },
-        limit: { type: "number" },
+    type: "function",
+    function: {
+      name: "filter_products",
+      description: "Filter products by category, brand, min/max price",
+      parameters: {
+        type: "object",
+        properties: {
+          category: { type: "string", description: "e.g. men, women, kids, accessories, footwear" },
+          brand: { type: "string", description: "e.g. nike, adidas, zara, h&m, levi, puma" },
+          minPrice: { type: "number" },
+          maxPrice: { type: "number" },
+          limit: { type: "number" },
+        },
       },
-      required: ["type"],
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_featured_products",
+      description: "Get top rated or sale/discounted products",
+      parameters: {
+        type: "object",
+        properties: {
+          type: { type: "string", description: "Either 'sale' for discounted or 'top' for highest rated" },
+          limit: { type: "number" },
+        },
+        required: ["type"],
+      },
     },
   },
 ];
@@ -93,73 +102,67 @@ const chatWithAI = async (req, res) => {
     return res.status(400).json({ success: false, message: "Messages required" });
   }
 
-  const SYSTEM_PROMPT = `You are ShopBot, a smart AI shopping assistant for ShopZone — a fashion e-commerce store.
+  const systemPrompt = {
+    role: "system",
+    content: `You are ShopBot, a smart AI shopping assistant for ShopZone — a fashion e-commerce store.
 You have tools to search the live product database. Always use tools to find real products before recommending.
-Rules: always use a tool first, mention product title and price, be friendly and concise, keep under 150 words, never invent products.`;
+Rules: always use a tool first, mention product title and price, be friendly and concise, keep under 150 words, never invent products.`,
+  };
 
   try {
-    // Convert messages to Gemini format
-    const geminiContents = messages.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
-
-    let allProducts = [];
+    let currentMessages = [systemPrompt, ...messages];
     let finalText = "";
+    let allProducts = [];
 
     // Agentic loop
     for (let i = 0; i < 5; i++) {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: geminiContents,
-            tools: [{ function_declarations: tools }],
-          }),
-        }
-      );
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: currentMessages,
+          tools,
+          tool_choice: "auto",
+          max_tokens: 1000,
+        }),
+      });
 
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("Gemini API error:", data);
+        console.error("Groq API error:", data);
         return res.status(500).json({ success: false, message: "AI service error" });
       }
 
-      const candidate = data.candidates?.[0];
-      const parts = candidate?.content?.parts || [];
+      const choice = data.choices?.[0];
+      const message = choice?.message;
 
-      // Check for function calls
-      const functionCalls = parts.filter((p) => p.functionCall);
-
-      if (functionCalls.length === 0) {
-        // No tool calls — get final text
-        finalText = parts.find((p) => p.text)?.text || "";
+      // No tool calls — final response
+      if (!message?.tool_calls || message.tool_calls.length === 0) {
+        finalText = message?.content || "";
         break;
       }
 
-      // Add model response to history
-      geminiContents.push({ role: "model", parts });
+      // Add assistant message with tool calls
+      currentMessages.push(message);
 
-      // Execute tools and add results
-      const toolResultParts = [];
-      for (const part of functionCalls) {
-        const { name, args } = part.functionCall;
+      // Execute each tool call
+      for (const toolCall of message.tool_calls) {
+        const name = toolCall.function.name;
+        const args = JSON.parse(toolCall.function.arguments || "{}");
         const result = await executeTool(name, args);
         if (Array.isArray(result)) allProducts.push(...result);
 
-        toolResultParts.push({
-          functionResponse: {
-            name,
-            response: { result: formatProducts(result) },
-          },
+        currentMessages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: formatProducts(result),
         });
       }
-
-      geminiContents.push({ role: "user", parts: toolResultParts });
     }
 
     // Deduplicate products
