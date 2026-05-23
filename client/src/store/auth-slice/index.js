@@ -7,43 +7,38 @@ const initialState = {
   user: null,
 };
 
-export const registerUser = createAsyncThunk(
-  "/auth/register",
-  async (formData) => {
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_URL}/api/auth/register`,
-      formData
-    );
-    return response.data;
-  }
-);
+export const registerUser = createAsyncThunk("/auth/register", async (formData) => {
+  const response = await axios.post(
+    `${import.meta.env.VITE_API_URL}/api/auth/register`,
+    formData
+  );
+  return response.data;
+});
 
-export const loginUser = createAsyncThunk(
-  "/auth/login",
-  async (formData) => {
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_URL}/api/auth/login`,
-      formData
-    );
-    if (response.data.success) {
-      localStorage.setItem("token", response.data.token);
-    }
-    return response.data;
+export const loginUser = createAsyncThunk("/auth/login", async (formData) => {
+  const response = await axios.post(
+    `${import.meta.env.VITE_API_URL}/api/auth/login`,
+    formData
+  );
+  if (response.data.success) {
+    localStorage.setItem("token", response.data.token);
   }
-);
+  return response.data;
+});
 
-export const logoutUser = createAsyncThunk(
-  "/auth/logout",
-  async () => {
-    localStorage.removeItem("token");
-    return { success: true };
-  }
-);
+export const logoutUser = createAsyncThunk("/auth/logout", async () => {
+  localStorage.removeItem("token");
+  return { success: true };
+});
 
 export const checkAuth = createAsyncThunk(
   "/auth/checkauth",
-  async () => {
+  async (_, { rejectWithValue }) => {
     const token = localStorage.getItem("token");
+
+    // FIX: if no token in localStorage, don't even call the API
+    if (!token) return rejectWithValue("No token");
+
     const response = await axios.get(
       `${import.meta.env.VITE_API_URL}/api/auth/check-auth`,
       {
@@ -65,46 +60,40 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(registerUser.pending, (state) => {
-        state.isLoading = true;
-      })
-      .addCase(registerUser.fulfilled, (state, action) => {
+      .addCase(registerUser.pending, (state) => { state.isLoading = true; })
+      .addCase(registerUser.fulfilled, (state) => {
         state.isLoading = false;
         state.user = null;
         state.isAuthenticated = false;
       })
-      .addCase(registerUser.rejected, (state, action) => {
+      .addCase(registerUser.rejected, (state) => {
         state.isLoading = false;
         state.user = null;
         state.isAuthenticated = false;
       })
-      .addCase(loginUser.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(loginUser.pending, (state) => { state.isLoading = true; })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
         state.user = action.payload.success ? action.payload.user : null;
         state.isAuthenticated = action.payload.success;
       })
-      .addCase(loginUser.rejected, (state, action) => {
+      .addCase(loginUser.rejected, (state) => {
         state.isLoading = false;
         state.user = null;
         state.isAuthenticated = false;
       })
-      .addCase(checkAuth.pending, (state) => {
-        state.isLoading = true;
-      })
+      .addCase(checkAuth.pending, (state) => { state.isLoading = true; })
       .addCase(checkAuth.fulfilled, (state, action) => {
         state.isLoading = false;
         state.user = action.payload.success ? action.payload.user : null;
         state.isAuthenticated = action.payload.success;
       })
-      .addCase(checkAuth.rejected, (state, action) => {
+      .addCase(checkAuth.rejected, (state) => {
         state.isLoading = false;
         state.user = null;
         state.isAuthenticated = false;
       })
-      .addCase(logoutUser.fulfilled, (state, action) => {
+      .addCase(logoutUser.fulfilled, (state) => {
         state.isLoading = false;
         state.user = null;
         state.isAuthenticated = false;

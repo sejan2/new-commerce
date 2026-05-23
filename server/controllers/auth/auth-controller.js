@@ -1,76 +1,116 @@
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const User = require("../../models/User");
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import axios from "axios";
 
-const registerUser = async (req, res) => {
-  const { userName, email, password } = req.body;
-  try {
-    const checkUser = await User.findOne({ email });
-    if (checkUser)
-      return res.json({
-        success: false,
-        message: "User already exists with the same email! Please try again",
-      });
-
-    const hashPassword = await bcrypt.hash(password, 12);
-    const newUser = new User({ userName, email, password: hashPassword });
-    await newUser.save();
-
-    res.status(200).json({ success: true, message: "Registration successful" });
-  } catch (e) {
-    res.status(500).json({ success: false, message: "Some error occurred" });
-  }
+const initialState = {
+  isAuthenticated: false,
+  isLoading: true,
+  user: null,
 };
 
-const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const checkUser = await User.findOne({ email });
-    if (!checkUser)
-      return res.json({
-        success: false,
-        message: "User doesn't exist! Please register first",
-      });
-
-    const checkPasswordMatch = await bcrypt.compare(password, checkUser.password);
-    if (!checkPasswordMatch)
-      return res.json({ success: false, message: "Incorrect password! Please try again" });
-
-    const token = jwt.sign(
-      { id: checkUser._id, role: checkUser.role, email: checkUser.email, userName: checkUser.userName },
-      process.env.JWT_SECRET || "fallback_secret",
-      { expiresIn: "7d" }
+export const registerUser = createAsyncThunk(
+  "/auth/register",
+  async (formData) => {
+    const response = await axios.post(
+      `${import.meta.env.VITE_API_URL}/api/auth/register`,
+      formData
     );
-
-    res.status(200).json({
-      success: true,
-      message: "Logged in successfully",
-      token,
-      user: { email: checkUser.email, role: checkUser.role, id: checkUser._id, userName: checkUser.userName },
-    });
-  } catch (e) {
-    res.status(500).json({ success: false, message: "Some error occurred" });
+    return response.data;
   }
-};
+);
 
-const logoutUser = (req, res) => {
-  res.status(200).json({ success: true, message: "Logged out successfully!" });
-};
-
-const authMiddleware = async (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token)
-    return res.status(401).json({ success: false, message: "Unauthorised user!" });
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(401).json({ success: false, message: "Unauthorised user!" });
+export const loginUser = createAsyncThunk(
+  "/auth/login",
+  async (formData) => {
+    const response = await axios.post(
+      `${import.meta.env.VITE_API_URL}/api/auth/login`,
+      formData
+    );
+    if (response.data.success) {
+      localStorage.setItem("token", response.data.token);
+    }
+    return response.data;
   }
-};
+);
 
-module.exports = { registerUser, loginUser, logoutUser, authMiddleware };
+export const logoutUser = createAsyncThunk(
+  "/auth/logout",
+  async () => {
+    localStorage.removeItem("token");
+    return { success: true };
+  }
+);
+
+export const checkAuth = createAsyncThunk(
+  "/auth/checkauth",
+  async () => {
+    const token = localStorage.getItem("token");
+    const response = await axios.get(
+      `${import.meta.env.VITE_API_URL}/api/auth/check-auth`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
+    );
+    return response.data;
+  }
+);
+
+const authSlice = createSlice({
+  name: "auth",
+  initialState,
+  reducers: {
+    setUser: (state, action) => {},
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(registerUser.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(registerUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = null;
+        state.isAuthenticated = false;
+      })
+      .addCase(registerUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.user = null;
+        state.isAuthenticated = false;
+      })
+      .addCase(loginUser.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(loginUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload.success ? action.payload.user : null;
+        state.isAuthenticated = action.payload.success;
+      })
+      .addCase(loginUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.user = null;
+        state.isAuthenticated = false;
+      })
+      .addCase(checkAuth.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(checkAuth.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload.success ? action.payload.user : null;
+        state.isAuthenticated = action.payload.success;
+      })
+      .addCase(checkAuth.rejected, (state, action) => {
+        state.isLoading = false;
+        state.user = null;
+        state.isAuthenticated = false;
+      })
+      .addCase(logoutUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = null;
+        state.isAuthenticated = false;
+      });
+  },
+});
+
+export const { setUser } = authSlice.actions;
+export default authSlice.reducer;
