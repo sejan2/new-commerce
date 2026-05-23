@@ -38,18 +38,14 @@ const loginUser = async (req, res) => {
 
     const token = jwt.sign(
       { id: checkUser._id, role: checkUser.role, email: checkUser.email, userName: checkUser.userName },
-      process.env.JWT_SECRET || "fallback_secret_change_me",
-      { expiresIn: "60m" }
+      process.env.JWT_SECRET || "fallback_secret",
+      { expiresIn: "7d" }
     );
 
-    // ✅ Fix - secure must be true in production (HTTPS)
-res.cookie("token", token, {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-}).json({
+    res.status(200).json({
       success: true,
       message: "Logged in successfully",
+      token,
       user: { email: checkUser.email, role: checkUser.role, id: checkUser._id, userName: checkUser.userName },
     });
   } catch (e) {
@@ -58,16 +54,18 @@ res.cookie("token", token, {
 };
 
 const logoutUser = (req, res) => {
-  res.clearCookie("token", { httpOnly: true, secure: true, sameSite: "none" }).json({ success: true, message: "Logged out successfully!" });
+  res.status(200).json({ success: true, message: "Logged out successfully!" });
 };
 
 const authMiddleware = async (req, res, next) => {
-  const token = req.cookies.token;
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
   if (!token)
     return res.status(401).json({ success: false, message: "Unauthorised user!" });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_change_me");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
     req.user = decoded;
     next();
   } catch (error) {

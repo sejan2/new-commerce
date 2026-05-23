@@ -9,67 +9,50 @@ const initialState = {
 
 export const registerUser = createAsyncThunk(
   "/auth/register",
-
   async (formData) => {
     const response = await axios.post(
       `${import.meta.env.VITE_API_URL}/api/auth/register`,
-      formData,
-      {
-        withCredentials: true,
-      }
+      formData
     );
-
     return response.data;
   }
 );
 
 export const loginUser = createAsyncThunk(
   "/auth/login",
-
   async (formData) => {
     const response = await axios.post(
       `${import.meta.env.VITE_API_URL}/api/auth/login`,
-      formData,
-      {
-        withCredentials: true,
-      }
+      formData
     );
-
+    if (response.data.success) {
+      localStorage.setItem("token", response.data.token);
+    }
     return response.data;
   }
 );
 
 export const logoutUser = createAsyncThunk(
   "/auth/logout",
-
   async () => {
-    const response = await axios.post(
-      `${import.meta.env.VITE_API_URL}/api/auth/logout`,
-      {},
-      {
-        withCredentials: true,
-      }
-    );
-
-    return response.data;
+    localStorage.removeItem("token");
+    return { success: true };
   }
 );
 
 export const checkAuth = createAsyncThunk(
   "/auth/checkauth",
-
   async () => {
+    const token = localStorage.getItem("token");
     const response = await axios.get(
       `${import.meta.env.VITE_API_URL}/api/auth/check-auth`,
       {
-        withCredentials: true,
         headers: {
-          "Cache-Control":
-            "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Authorization: `Bearer ${token}`,
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
         },
       }
     );
-
     return response.data;
   }
 );
@@ -99,7 +82,6 @@ const authSlice = createSlice({
         state.isLoading = true;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
-
         state.isLoading = false;
         state.user = action.payload.success ? action.payload.user : null;
         state.isAuthenticated = action.payload.success;
